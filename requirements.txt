@@ -1,23 +1,15 @@
 streamlit
 pandas
 numpy
-scikit-learn
+scikit-learn==1.3.2
 matplotlib
 seaborn
 wordcloud
 nltk
 textblob
 openpyxl
-streamlit
-scikit-learn
-nltk
 Sastrawi
-
-torch
-transformers
-sentencepiece
-
-
 regex
 tqdm
+
 
