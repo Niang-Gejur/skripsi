@@ -4,7 +4,7 @@
 # =======================
 
 import streamlit as st
-import pickle
+import joblib
 import os
 
 # =======================
@@ -15,9 +15,7 @@ def load_model():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(base_dir, "model_nb.pkl")
 
-    with open(model_path, "rb") as f:
-        model = pickle.load(f)
-
+    model = joblib.load(model_path)
     return model
 
 model = load_model()
@@ -38,7 +36,7 @@ def main():
             st.warning("⚠️ Komentar tidak boleh kosong.")
             return
 
-        # Prediksi langsung (pipeline otomatis TF-IDF)
+        # Pipeline: TF-IDF + Naive Bayes
         prediksi = model.predict([user_text])[0]
         confidence = model.predict_proba([user_text]).max() * 100
 
