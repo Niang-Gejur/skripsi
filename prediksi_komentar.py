@@ -1,27 +1,26 @@
 # =======================
 # prediksi_komentar.py
-# (Naïve Bayes Version)
+# Train-on-Load Naïve Bayes
 # =======================
 
 import streamlit as st
-import pickle
+import pandas as pd
 import re
+import os
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.naive_bayes import MultinomialNB
+
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+import nltk
 
 # =======================
-# LOAD MODEL & VECTORIZER
+# NLTK SETUP (Cloud-safe)
 # =======================
-@st.cache_resource(show_spinner=True)
-def load_model():
-    with open("model_nb.pkl", "rb") as f:
-        model = pickle.load(f)
-    with open("tfidf_vectorizer.pkl", "rb") as f:
-        vectorizer = pickle.load(f)
-    return model, vectorizer
-
-model, vectorizer = load_model()
+nltk.download("punkt")
+nltk.download("stopwords")
 
 # =======================
 # PREPROCESSING
@@ -40,6 +39,36 @@ def preprocess_text(text):
     return " ".join(tokens)
 
 # =======================
+# LOAD & TRAIN MODEL
+# =======================
+@st.cache_resource(show_spinner=True)
+def train_model():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    data_path = os.path.join(base_dir, "labeled_tweets.xlsx")
+
+    df = pd.read_excel(data_path)
+
+    # WAJIB: sesuaikan dengan kolom dataset Anda
+    # contoh umum:
+    # kolom teks  : 'text' / 'tweet' / 'clean_text'
+    # kolom label : 'sentiment'
+
+    df["clean_text"] = df["text"].apply(preprocess_text)
+
+    X = df["clean_text"]
+    y = df["sentiment"]
+
+    vectorizer = TfidfVectorizer()
+    X_tfidf = vectorizer.fit_transform(X)
+
+    model = MultinomialNB()
+    model.fit(X_tfidf, y)
+
+    return model, vectorizer
+
+model, vectorizer = train_model()
+
+# =======================
 # MAIN FUNCTION
 # =======================
 def main():
@@ -55,15 +84,12 @@ def main():
             st.warning("⚠️ Komentar tidak boleh kosong.")
             return
 
-        # Preprocessing
         clean_text = preprocess_text(user_text)
         text_tfidf = vectorizer.transform([clean_text])
 
-        # Prediksi
         prediksi = model.predict(text_tfidf)[0]
         confidence = model.predict_proba(text_tfidf).max() * 100
 
-        # Output
         st.subheader("📊 Hasil Prediksi")
         st.write(f"**Komentar:** {user_text}")
         st.write(f"**Sentimen:** {prediksi}")
@@ -75,4 +101,3 @@ def main():
             st.info("Komentar bersifat **netral** 😐")
         else:
             st.error("Komentar bernada **negatif** 😠")
-
