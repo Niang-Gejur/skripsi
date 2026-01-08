@@ -1,78 +1,78 @@
-# ======================= 
-# prediksi_komentar.py 
+# =======================
+# prediksi_komentar.py
+# (Naïve Bayes Version)
 # =======================
 
 import streamlit as st
-from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
+import pickle
+import re
+from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 
+# =======================
+# LOAD MODEL & VECTORIZER
+# =======================
+@st.cache_resource(show_spinner=True)
+def load_model():
+    with open("model_nb.pkl", "rb") as f:
+        model = pickle.load(f)
+    with open("tfidf_vectorizer.pkl", "rb") as f:
+        vectorizer = pickle.load(f)
+    return model, vectorizer
+
+model, vectorizer = load_model()
+
+# =======================
+# PREPROCESSING
+# =======================
+factory = StemmerFactory()
+stemmer = factory.create_stemmer()
+stop_words = set(stopwords.words("indonesian"))
+
+def preprocess_text(text):
+    text = text.lower()
+    text = re.sub(r"http\S+|www\S+|@\w+|#\w+", "", text)
+    text = re.sub(r"[^a-z\s]", "", text)
+    tokens = word_tokenize(text)
+    tokens = [w for w in tokens if w not in stop_words]
+    tokens = [stemmer.stem(w) for w in tokens]
+    return " ".join(tokens)
+
+# =======================
+# MAIN FUNCTION
+# =======================
 def main():
-    # =======================
-    # Konfigurasi halaman
-    # =======================
-    st.set_page_config(
-        page_title="Sentiment Analysis Mobile Legends",
-        page_icon="🎮"
+    st.subheader("✍️ Input Komentar")
+
+    user_text = st.text_area(
+        "Masukkan komentar Twitter tentang Mobile Legends:",
+        height=120
     )
 
-    # =======================
-    # Judul aplikasi
-    # =======================
-    st.title("🎮 Sentiment Analysis Komentar Mobile Legends")
-    @st.cache_resource(show_spinner=True)
-    def load_model():
-        try:
-            pretrained = "mdhugol/indonesia-bert-sentiment-classification"
-            model = AutoModelForSequenceClassification.from_pretrained(pretrained)
-            tokenizer = AutoTokenizer.from_pretrained(pretrained)
-            return pipeline("sentiment-analysis", model=model, tokenizer=tokenizer)
-        except Exception as e:
-            st.error(f"Gagal memuat model IndoBERT: {e}")
-            return None
+    if st.button("🔍 Prediksi Sentimen"):
+        if user_text.strip() == "":
+            st.warning("⚠️ Komentar tidak boleh kosong.")
+            return
 
-    sentiment_pipeline = load_model()
+        # Preprocessing
+        clean_text = preprocess_text(user_text)
+        text_tfidf = vectorizer.transform([clean_text])
 
-    if sentiment_pipeline is None:
-        st.stop()
+        # Prediksi
+        prediksi = model.predict(text_tfidf)[0]
+        confidence = model.predict_proba(text_tfidf).max() * 100
 
-    label_index = {
-        'LABEL_0': 'Positif',
-        'LABEL_1': 'Netral',
-        'LABEL_2': 'Negatif'
-    }
+        # Output
+        st.subheader("📊 Hasil Prediksi")
+        st.write(f"**Komentar:** {user_text}")
+        st.write(f"**Sentimen:** {prediksi}")
+        st.write(f"**Confidence:** {confidence:.2f}%")
 
-    # =======================
-    # Input komentar
-    # =======================
-    user_text = st.text_area("Masukkan komentar di sini:")
-
-    if st.button("Prediksi Sentimen"):
-        if user_text.strip() != "":
-            try:
-                # Prediksi sentimen
-                result = sentiment_pipeline(user_text)
-                label = label_index.get(result[0]['label'], result[0]['label'])
-                score = result[0]['score']
-
-                # =======================
-                # Tampilkan hasil
-                # =======================
-                st.subheader("📊 Hasil Prediksi")
-                st.write(f"**Komentar:** {user_text}")
-                st.write(f"**Sentimen:** {label}")
-                st.write(f"**Confidence:** {score * 100:.2f}%")
-
-                # Pesan sesuai sentimen
-                if label == "Positif":
-                    st.success("Komentar ini bernada **positif** 🎉")
-                elif label == "Netral":
-                    st.info("Komentar ini bersifat **netral** 😐")
-                else:
-                    st.error("Komentar ini bernada **negatif** 😠")
-
-            except Exception as e:
-                st.error(f"Terjadi kesalahan saat memproses prediksi: {e}")
+        if prediksi.lower() == "positif":
+            st.success("Komentar bernada **positif** 🎉")
+        elif prediksi.lower() == "netral":
+            st.info("Komentar bersifat **netral** 😐")
         else:
-            st.warning("⚠️ Silakan masukkan komentar terlebih dahulu.")
+            st.error("Komentar bernada **negatif** 😠")
 
-if __name__ == "__main__":
-    main()
