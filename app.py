@@ -1,76 +1,76 @@
-# ===============================
-# app.py — Streamlit Main App
-# ===============================
-import sys, os
+# ============================
+# prediksi_komentar.py
+# NAÏVE BAYES - INFERENCE
+# ============================
+
+import pickle
+import os
 import streamlit as st
 
-# Pastikan direktori kerja aktif dikenali (agar impor tidak error di Streamlit Cloud)
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# Import dua modul fitur
-import prediksi_komentar
-import streamlit_sentiment_app
+# ============================
+# LOAD MODEL (CACHED)
+# ============================
+@st.cache_resource(show_spinner=False)
+def load_model():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(base_dir, "model_nb.pkl")
 
-# ===============================
-# Konfigurasi dasar aplikasi
-# ===============================
-st.set_page_config(
-    page_title="Analisis Sentimen",
-    page_icon="💬",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+    if not os.path.exists(model_path):
+        raise FileNotFoundError("model_nb.pkl tidak ditemukan")
 
-# ===============================
-# Sidebar Navigation
-# ===============================
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3330/3330314.png", width=80)
-    st.title("📂 Navigasi Utama")
+    with open(model_path, "rb") as f:
+        model = pickle.load(f)
 
-    menu = st.radio(
-        "Pilih Halaman:",
-        ("🏠 Beranda", "🔍 Prediksi Komentar", "📈 Analisis Sentimen"),
-        index=0
+    return model
+
+
+model = load_model()
+
+
+# ============================
+# LOGIC FUNCTION (DIPANGGIL app.py)
+# ============================
+def predict_sentiment(text: str):
+    if text is None or text.strip() == "":
+        return "Tidak valid", 0.0
+
+    label = model.predict([text])[0]
+
+    if hasattr(model, "predict_proba"):
+        confidence = model.predict_proba([text]).max()
+    else:
+        confidence = 0.0
+
+    return label, confidence
+
+
+# ============================
+# UI FUNCTION (DIPANGGIL app.py)
+# ============================
+def main():
+    st.subheader("✍️ Input Komentar")
+
+    user_text = st.text_area(
+        "Masukkan komentar Twitter tentang Mobile Legends:",
+        height=120
     )
 
-# ===============================
-# Halaman: Beranda
-# ===============================
-if menu == "🏠 Beranda":
-    st.markdown(
-        """
-        # 💬 Aplikasi Analisis Sentimen
-        Aplikasi ini dibuat oleh **Septiano Dwiyanto Salette (22.22.2647)**  
-        sebagai syarat untuk kelulusan **Sidang Skripsi**.
+    if st.button("🔍 Prediksi Sentimen"):
+        if user_text.strip() == "":
+            st.warning("⚠️ Komentar tidak boleh kosong.")
+            return
 
-        ---
-        ### 🧠 Fitur Aplikasi:
-        - **🔍 Prediksi Komentar:**  
-          Untuk memprediksi sentimen (positif, netral, negatif) dari komentar pengguna secara otomatis.  
-        - **📈 Analisis Sentimen:**  
-          Untuk melakukan analisis lebih mendalam, visualisasi hasil, dan evaluasi model Machine Learning.
-        """
-    )
+        label, confidence = predict_sentiment(user_text)
 
-# ===============================
-# Halaman: Prediksi Komentar
-# ===============================
-elif menu == "🔍 Prediksi Komentar":
-    st.markdown("<h2 style='color:#2196F3;'>🔍 Prediksi Komentar</h2>", unsafe_allow_html=True)
-    st.info("Masukkan komentar pengguna Mobile Legends dan dapatkan hasil prediksi sentimennya.")
-    try:
-        prediksi_komentar.main()
-    except Exception as e:
-        st.error(f"⚠️ Terjadi kesalahan saat memuat fitur Prediksi Komentar:\n\n{e}")
+        st.subheader("📊 Hasil Prediksi")
+        st.write(f"**Komentar:** {user_text}")
+        st.write(f"**Sentimen:** {label}")
+        st.write(f"**Confidence:** {confidence * 100:.2f}%")
 
-# ===============================
-# Halaman: Analisis Sentimen
-# ===============================
-elif menu == "📈 Analisis Sentimen":
-    st.markdown("<h2 style='color:#4CAF50;'>📈 Analisis Sentimen</h2>", unsafe_allow_html=True)
-    st.info("Unggah dataset dan lakukan analisis serta visualisasi sentimen pengguna.")
-    try:
-        streamlit_sentiment_app.main()
-    except Exception as e:
-        st.error(f"⚠️ Terjadi kesalahan saat memuat fitur Analisis Sentimen:\n\n{e}")
+        if str(label).lower() == "positif":
+            st.success("Komentar bernada **positif** 🎉")
+        elif str(label).lower() == "netral":
+            st.info("Komentar bersifat **netral** 😐")
+        else:
+            st.error("Komentar bernada **negatif** 😠")
