@@ -1,53 +1,54 @@
-# =======================
+# ============================
 # prediksi_komentar.py
-# NB PIPELINE - INFERENCE
-# =======================
+# INFERENCE NAÏVE BAYES
+# ============================
 
-import streamlit as st
-import joblib
+import pickle
 import os
+import streamlit as st
 
-# =======================
-# LOAD MODEL PIPELINE
-# =======================
-@st.cache_resource(show_spinner=True)
+
+# ============================
+# LOAD MODEL (CACHED)
+# ============================
+@st.cache_resource(show_spinner=False)
 def load_model():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(base_dir, "model_nb.pkl")
 
-    model = joblib.load(model_path)
+    if not os.path.exists(model_path):
+        raise FileNotFoundError("model_nb.pkl tidak ditemukan")
+
+    with open(model_path, "rb") as f:
+        model = pickle.load(f)
+
     return model
+
 
 model = load_model()
 
-# =======================
-# MAIN FUNCTION
-# =======================
-def main():
-    st.subheader("✍️ Input Komentar")
 
-    user_text = st.text_area(
-        "Masukkan komentar Twitter tentang Mobile Legends:",
-        height=120
-    )
+# ============================
+# PREDICTION FUNCTION
+# ============================
+def predict_sentiment(text: str):
+    """
+    Memprediksi sentimen komentar Twitter Mobile Legends
+    Output:
+        label (str)
+        confidence (float)
+    """
 
-    if st.button("🔍 Prediksi Sentimen"):
-        if user_text.strip() == "":
-            st.warning("⚠️ Komentar tidak boleh kosong.")
-            return
+    if text is None or text.strip() == "":
+        return "Tidak valid", 0.0
 
-        # Pipeline: TF-IDF + Naive Bayes
-        prediksi = model.predict([user_text])[0]
-        confidence = model.predict_proba([user_text]).max() * 100
+    # Prediksi
+    label = model.predict([text])[0]
 
-        st.subheader("📊 Hasil Prediksi")
-        st.write(f"**Komentar:** {user_text}")
-        st.write(f"**Sentimen:** {prediksi}")
-        st.write(f"**Confidence:** {confidence:.2f}%")
+    # Confidence
+    if hasattr(model, "predict_proba"):
+        confidence = model.predict_proba([text]).max()
+    else:
+        confidence = 0.0
 
-        if prediksi.lower() == "positif":
-            st.success("Komentar bernada **positif** 🎉")
-        elif prediksi.lower() == "netral":
-            st.info("Komentar bersifat **netral** 😐")
-        else:
-            st.error("Komentar bernada **negatif** 😠")
+    return label, confidence
