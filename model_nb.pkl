@@ -1,0 +1,74 @@
+# =========================================
+# TRAINING MODEL NAÏVE BAYES (FINAL)
+# Mobile Legends Twitter Sentiment
+# =========================================
+
+import pandas as pd
+import pickle
+import sklearn
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score, classification_report
+
+# ===============================
+# CEK VERSI SKLEARN (WAJIB)
+# ===============================
+print("Scikit-learn version:", sklearn.__version__)
+assert sklearn.__version__ == "1.6.1", "Versi sklearn HARUS 1.6.1"
+
+# ===============================
+# LOAD DATASET
+# ===============================
+df = pd.read_excel("mobilelegends_labelled.xlsx")
+df.columns = df.columns.str.strip()
+
+df = df.dropna(subset=["stemmed_text", "sentiment_label"])
+
+X = df["stemmed_text"].astype(str)
+y = df["sentiment_label"]
+
+# ===============================
+# SPLIT DATA
+# ===============================
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+# ===============================
+# PIPELINE TF-IDF + NAÏVE BAYES
+# ===============================
+nb_pipeline = Pipeline([
+    ("tfidf", TfidfVectorizer(
+        lowercase=True,
+        ngram_range=(1, 2),
+        min_df=3,
+        max_df=0.85,
+        sublinear_tf=True
+    )),
+    ("classifier", MultinomialNB())
+])
+
+# ===============================
+# TRAIN MODEL
+# ===============================
+nb_pipeline.fit(X_train, y_train)
+
+# ===============================
+# EVALUASI SINGKAT
+# ===============================
+y_pred = nb_pipeline.predict(X_test)
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print(classification_report(y_test, y_pred))
+
+# ===============================
+# SIMPAN MODEL BARU (FINAL)
+# ===============================
+with open("model_nb.pkl", "wb") as f:
+    pickle.dump(nb_pipeline, f)
+
+print("✅ model_nb.pkl BARU berhasil dibuat")
