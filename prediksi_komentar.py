@@ -1,38 +1,26 @@
 # =======================
 # prediksi_komentar.py
-# FINAL - SESUAI DATASET
+# NB PIPELINE - INFERENCE
 # =======================
 
 import streamlit as st
-import pandas as pd
+import pickle
 import os
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.naive_bayes import MultinomialNB
-
 # =======================
-# TRAIN MODEL LANGSUNG
+# LOAD MODEL PIPELINE
 # =======================
 @st.cache_resource(show_spinner=True)
-def train_model():
+def load_model():
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    data_path = os.path.join(base_dir, "mobilelegends_labelled (1).xlsx")
+    model_path = os.path.join(base_dir, "model_nb.pkl")
 
-    df = pd.read_excel(data_path)
+    with open(model_path, "rb") as f:
+        model = pickle.load(f)
 
-    # Gunakan kolom YANG ADA
-    X = df["stemmed_text"]
-    y = df["sentiment_label"]
+    return model
 
-    vectorizer = TfidfVectorizer()
-    X_tfidf = vectorizer.fit_transform(X)
-
-    model = MultinomialNB()
-    model.fit(X_tfidf, y)
-
-    return model, vectorizer
-
-model, vectorizer = train_model()
+model = load_model()
 
 # =======================
 # MAIN FUNCTION
@@ -50,12 +38,9 @@ def main():
             st.warning("⚠️ Komentar tidak boleh kosong.")
             return
 
-        # Karena model dilatih dari stemmed_text,
-        # input dipakai langsung (konsisten metodologi)
-        text_tfidf = vectorizer.transform([user_text.lower()])
-
-        prediksi = model.predict(text_tfidf)[0]
-        confidence = model.predict_proba(text_tfidf).max() * 100
+        # Prediksi langsung (pipeline otomatis TF-IDF)
+        prediksi = model.predict([user_text])[0]
+        confidence = model.predict_proba([user_text]).max() * 100
 
         st.subheader("📊 Hasil Prediksi")
         st.write(f"**Komentar:** {user_text}")
