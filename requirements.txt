@@ -8,6 +8,10 @@ wordcloud
 nltk
 textblob
 openpyxl
+streamlit
+scikit-learn
+nltk
+Sastrawi
 
 torch
 transformers
@@ -16,3 +20,4 @@ sentencepiece
 
 regex
 tqdm
+
